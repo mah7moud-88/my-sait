@@ -1,307 +1,637 @@
-// ==================================================================
-// ================== إعدادات تسجيل الدخول =========================
-// ==================================================================
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة مشاكل المعاملات</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-// 🔑 بيانات الدخول الافتراضية
-const DEFAULT_CREDENTIALS = {
-    username: 'admin',
-    password: 'admin123'
-};
+    <!-- ============================================================ -->
+    <!-- 🔐 حماية الجلسة — لازم تكون أول حاجة تشتغل في الصفحة        -->
+    <!-- ============================================================ -->
+    <script>
+    (function checkAuth() {
+        const SESSION_KEY = 'transactions_auth_session';
+        const LOGIN_PAGE = 'login.html';
+        const SESSION_MAX_AGE = 24 * 60 * 60 * 1000; // 24 ساعة
 
-// مفاتيح التخزين
-// ⚠️ الجلسة بقت في sessionStorage (بتنتهي لما تقفل التاب)
-// ⚠️ "تذكرني" فضل في localStorage (يفضل محفوظ)
-const SESSION_KEY = 'transactions_auth_session';
-const REMEMBER_KEY = 'transactions_remember_username';
-
-// ==================================================================
-// ================== عناصر الصفحة =================================
-// ==================================================================
-const loginForm = document.getElementById('loginForm');
-const usernameInput = document.getElementById('username');
-const passwordInput = document.getElementById('password');
-const togglePassword = document.getElementById('togglePassword');
-const rememberMe = document.getElementById('rememberMe');
-const loginBtn = document.getElementById('loginBtn');
-const alertBox = document.getElementById('alertBox');
-const usernameError = document.getElementById('usernameError');
-const passwordError = document.getElementById('passwordError');
-
-// ==================================================================
-// ================== إظهار/إخفاء كلمة المرور ======================
-// ==================================================================
-if (togglePassword) {
-    togglePassword.addEventListener('click', () => {
-        const type = passwordInput.type === 'password' ? 'text' : 'password';
-        passwordInput.type = type;
-
-        const icon = togglePassword.querySelector('i');
-        if (type === 'text') {
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    });
-}
-
-// ==================================================================
-// ================== إظهار الرسائل ================================
-// ==================================================================
-function showError(message) {
-    alertBox.className = 'alert-box error';
-    alertBox.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${message}`;
-    alertBox.style.display = 'flex';
-
-    setTimeout(() => {
-        alertBox.style.display = 'none';
-    }, 4000);
-}
-
-function showSuccess(message) {
-    alertBox.className = 'alert-box success';
-    alertBox.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${message}`;
-    alertBox.style.display = 'flex';
-}
-
-function clearErrors() {
-    usernameError.textContent = '';
-    usernameError.classList.remove('show');
-    passwordError.textContent = '';
-    passwordError.classList.remove('show');
-    usernameInput.classList.remove('error');
-    passwordInput.classList.remove('error');
-    alertBox.style.display = 'none';
-}
-
-function setFieldError(input, errorEl, message) {
-    input.classList.add('error');
-    errorEl.textContent = message;
-    errorEl.classList.add('show');
-}
-
-// ==================================================================
-// ================== التحقق من صحة البيانات =======================
-// ==================================================================
-function validateForm() {
-    clearErrors();
-    let isValid = true;
-
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value.trim();
-
-    if (!username) {
-        setFieldError(usernameInput, usernameError, 'من فضلك أدخل اسم المستخدم');
-        isValid = false;
-    } else if (username.length < 3) {
-        setFieldError(usernameInput, usernameError, 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل');
-        isValid = false;
-    }
-
-    if (!password) {
-        setFieldError(passwordInput, passwordError, 'من فضلك أدخل كلمة المرور');
-        isValid = false;
-    } else if (password.length < 4) {
-        setFieldError(passwordInput, passwordError, 'كلمة المرور يجب أن تكون 4 أحرف على الأقل');
-        isValid = false;
-    }
-
-    return isValid;
-}
-
-// ==================================================================
-// ================== إزالة الخطأ عند الكتابة ======================
-// ==================================================================
-usernameInput.addEventListener('input', () => {
-    usernameInput.classList.remove('error');
-    usernameError.classList.remove('show');
-    alertBox.style.display = 'none';
-});
-
-passwordInput.addEventListener('input', () => {
-    passwordInput.classList.remove('error');
-    passwordError.classList.remove('show');
-    alertBox.style.display = 'none';
-});
-
-// ==================================================================
-// ================== معالجة تسجيل الدخول ==========================
-// ==================================================================
-loginForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value.trim();
-
-    // حالة التحميل
-    loginBtn.disabled = true;
-    const btnText = loginBtn.querySelector('.btn-text');
-    const btnLoader = loginBtn.querySelector('.btn-loader');
-    const btnIcon = loginBtn.querySelector('.btn-icon');
-
-    btnText.textContent = 'جاري التحقق...';
-    btnLoader.style.display = 'inline-flex';
-    btnIcon.style.display = 'none';
-
-    // محاكاة الاتصال بالسيرفر
-    setTimeout(() => {
-        // التحقق من البيانات
-        if (username === DEFAULT_CREDENTIALS.username && password === DEFAULT_CREDENTIALS.password) {
-            // ✅ نجاح
-            showSuccess('تم تسجيل الدخول بنجاح! جاري التحويل...');
-
-            // ✅ حفظ الجلسة في sessionStorage (بتنتهي لما تقفل التاب)
-            const session = {
-                username: username,
-                loginTime: Date.now(),
-                token: generateToken()
-            };
-
-            sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-
-            // ✅ "تذكرني" فضل في localStorage (اسم المستخدم بس، مش الجلسة)
-            if (rememberMe.checked) {
-                localStorage.setItem(REMEMBER_KEY, username);
-            } else {
-                localStorage.removeItem(REMEMBER_KEY);
-            }
-
-            // عرض شاشة الترحيب والتحويل
-            showWelcomeAndRedirect();
-
-        } else {
-            // ❌ فشل
-            loginBtn.disabled = false;
-            btnText.textContent = 'تسجيل الدخول';
-            btnLoader.style.display = 'none';
-            btnIcon.style.display = 'inline-flex';
-
-            showError('اسم المستخدم أو كلمة المرور غير صحيحة');
-
-            // اهتزاز النموذج
-            const form = document.querySelector('.login-form-container');
-            form.style.animation = 'shake 0.5s';
-            setTimeout(() => {
-                form.style.animation = '';
-            }, 500);
-        }
-    }, 1200);
-});
-
-// ==================================================================
-// ================== توليد توكن عشوائي ============================
-// ==================================================================
-function generateToken() {
-    return 'tk_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 15);
-}
-
-// ==================================================================
-// ================== شاشة الترحيب والتحويل ========================
-// ==================================================================
-function showWelcomeAndRedirect() {
-    const overlay = document.createElement('div');
-    overlay.className = 'welcome-overlay';
-    overlay.innerHTML = `
-        <div class="welcome-content">
-            <div class="welcome-icon">
-                <i class="fa-solid fa-check"></i>
-            </div>
-            <h2>مرحباً بك! 👋</h2>
-            <p>جاري تحويلك إلى لوحة التحكم...</p>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    requestAnimationFrame(() => {
-        overlay.classList.add('show');
-    });
-
-    setTimeout(() => {
-        window.location.replace('index.html');
-    }, 1500);
-}
-
-// ==================================================================
-// ================== ✅ التحقق من الجلسة ===========================
-// ==================================================================
-// - sessionStorage: الجلسة بتنتهي لما تقفل التاب
-// - لو الجلسة صالحة (أقل من 24 ساعة) → تحويل فوري لـ index.html
-// - لو تالفة أو منتهية → مسحها والبقاء في صفحة الدخول
-
-function checkExistingSession() {
-    // 🔧 تجاوز للاختبار
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('force') === '1') {
-        sessionStorage.removeItem(SESSION_KEY);
-        return;
-    }
-
-    const session = sessionStorage.getItem(SESSION_KEY);
-    if (!session) return;
-
-    try {
-        const parsed = JSON.parse(session);
-
-        // ✅ تحقق كامل من صحة بيانات الجلسة
-        if (!parsed || !parsed.username || !parsed.token || !parsed.loginTime) {
+        // تجاوز للاختبار: ?force=1
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('force') === '1') {
             sessionStorage.removeItem(SESSION_KEY);
+            window.location.replace(LOGIN_PAGE);
             return;
         }
 
-        // ✅ تحقق إن الجلسة مش أقدم من 24 ساعة
-        const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
-        const age = Date.now() - parsed.loginTime;
+        let session = null;
+        try {
+            // ✅ sessionStorage بدل localStorage
+            session = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+        } catch (e) {
+            session = null;
+        }
 
-        if (age < SESSION_MAX_AGE && age >= 0) {
-            // جلسة صالحة → حوّل للوحة التحكم
-            window.location.replace('index.html');
+        // مفيش جلسة → تحويل لصفحة الدخول
+        if (!session || !session.username || !session.token) {
+            window.location.replace(LOGIN_PAGE);
             return;
         }
 
-        // جلسة منتهية → امسحها
-        sessionStorage.removeItem(SESSION_KEY);
-    } catch (e) {
-        console.error('خطأ في قراءة الجلسة:', e);
-        sessionStorage.removeItem(SESSION_KEY);
-    }
-}
+        // جلسة منتهية → امسحها وحوّل
+        const age = Date.now() - (session.loginTime || 0);
+        if (age >= SESSION_MAX_AGE || age < 0) {
+            sessionStorage.removeItem(SESSION_KEY);
+            window.location.replace(LOGIN_PAGE);
+        }
+    })();
+    </script>
+</head>
+<body>
 
-// ==================================================================
-// ================== استرجاع اسم المستخدم المحفوظ ==================
-// ==================================================================
-function restoreRememberedUsername() {
-    const remembered = localStorage.getItem(REMEMBER_KEY);
-    if (remembered) {
-        usernameInput.value = remembered;
-        rememberMe.checked = true;
-        setTimeout(() => passwordInput.focus(), 300);
-    } else {
-        setTimeout(() => usernameInput.focus(), 300);
-    }
-}
+    <aside class="sidebar">
+        <div class="logo">
+            <span class="logo-icon">🏦</span>
+            <span class="logo-text">منصة مشاكل المعاملات</span>
+        </div>
+        <nav class="nav">
+            <a href="#" class="nav-item active" data-page="dashboard"><span>📊</span> لوحة التحكم</a>
+            <a href="#" class="nav-item" data-page="problems">
+                <span>⚠️</span> مشاكلي
+                <span class="nav-badge" id="navProblemsCount" style="display:none;">0</span>
+            </a>
+            <a href="#" class="nav-item" data-page="cards">
+                <span>💳</span> إصدار البطاقات
+                <span class="nav-badge" id="navCardsCount" style="display:none;">0</span>
+            </a>
+            <a href="#" class="nav-item" data-page="balances"><span>💱</span> رصيد الدينار &amp; دولار</a>
+            <a href="#" class="nav-item" data-page="settings"><span>⚙️</span> الإعدادات</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sync-status">
+                <span class="dot"></span>
+                <span>متصل بـ OneDrive</span>
+            </div>
+        </div>
+    </aside>
 
-// ==================================================================
-// ================== ✅ تشغيل أولي =================================
-// ==================================================================
+    <main class="main">
+        <header class="header">
+            <div>
+                <h1 class="page-title">لوحة التحكم</h1>
+                <p class="page-subtitle">نظرة عامة على البيانات</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-ghost" id="refreshBtn">🔄 تحديث</button>
+                <button class="btn btn-primary" id="exportBtn">⬇️ تصدير</button>
+                <button class="btn btn-danger" id="logoutBtn" title="تسجيل الخروج">🚪 خروج</button>
+                <div class="avatar">أ</div>
+            </div>
+        </header>
 
-// 1) افحص الجلسة أولاً — لو صالحة، حوّل فوراً
-checkExistingSession();
+        <!-- ================================================== -->
+        <!-- ============= View: لوحة التحكم =================== -->
+        <!-- ================================================== -->
+        <div id="dashboardView" class="page-view active">
 
-// 2) استرجع اسم المستخدم المحفوظ
-restoreRememberedUsername();
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">👥</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي العملاء</p>
+                        <h3 class="stat-value" id="statCustomers">0</h3>
+                        <p class="stat-trend up">▲ 12% هذا الشهر</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c);">💰</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي المعاملات المودعة</p>
+                        <h3 class="stat-value" id="statDeposits">0</h3>
+                        <p class="stat-trend up">▲ 8% هذا الشهر</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">📋</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي المعاملات غير المودعة</p>
+                        <h3 class="stat-value" id="statNotDeposited">0</h3>
+                        <p class="stat-trend down">▼ 3% عن أمس</p>
+                    </div>
+                </div>
+                <div class="stat-card clickable" id="problemsCard" style="cursor: pointer;" title="اضغط لعرض صفحة مشاكلي">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">⚠️</div>
+                    <div class="stat-info">
+                        <p class="stat-label">معاملات بها مشاكل</p>
+                        <h3 class="stat-value" id="statProblems">0</h3>
+                        <p class="stat-trend down">اضغط لعرضها</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #34d399);">💵</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي تم السحب</p>
+                        <h3 class="stat-value" id="statWithdrawn">0</h3>
+                        <p class="stat-trend up">▲ 5% هذا الشهر</p>
+                    </div>
+                </div>
+            </section>
 
-// ==================================================================
-// ================== CSS للاهتزاز =================================
-// ==================================================================
-const shakeStyle = document.createElement('style');
-shakeStyle.textContent = `
-    @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
-        20%, 40%, 60%, 80% { transform: translateX(8px); }
-    }
-`;
-document.head.appendChild(shakeStyle);
+            <section class="search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="ابحث بالاسم، رقم الحساب، الرقم الوطني، أو رقم الهاتف...">
+                <kbd>Ctrl + K</kbd>
+            </section>
+
+            <section class="table-container">
+                <div class="table-header">
+                    <h2>سجل المعاملات</h2>
+                    <div class="table-actions-group">
+                        <button class="btn btn-ghost btn-sm" id="compareBtn">🔍 مقارنة أرقام</button>
+                        <button class="btn btn-ghost btn-sm" id="addTransactionBtn" style="background: linear-gradient(135deg, #10b981, #34d399); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.4);">➕ إضافة معاملة</button>
+                        <button class="btn btn-ghost btn-sm" id="importBtn">📥 استيراد Excel</button>
+                        <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none;">
+                        <button class="btn btn-ghost btn-sm" id="clearFiltersBtn">✕ مسح الفلاتر</button>
+                        <button class="btn btn-danger btn-sm" id="clearDataBtn">🗑️ مسح كل البيانات</button>
+                    </div>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><div class="th-content"><span>الاسم</span><button class="filter-btn" data-col="name">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم الحساب</span><button class="filter-btn" data-col="account">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم البطاقة</span><button class="filter-btn" data-col="card">▾</button></div></th>
+                                <th><div class="th-content"><span>الرقم الوطني</span><button class="filter-btn" data-col="nationalId">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم الهاتف</span><button class="filter-btn" data-col="phone">▾</button></div></th>
+                                <th><div class="th-content"><span>اسم المورد</span><button class="filter-btn" data-col="supplier">▾</button></div></th>
+                                <th><div class="th-content"><span>تاريخ الإيداع</span><button class="filter-btn" data-col="depositDate">▾</button></div></th>
+                                <th><div class="th-content"><span>قيمة الإيداع</span><button class="filter-btn" data-col="depositValue">▾</button></div></th>
+                                <th><div class="th-content"><span>ملاحظة</span><button class="filter-btn" data-col="note">▾</button></div></th>
+                                <th><div class="th-content"><span>تم السحب</span><button class="filter-btn" data-col="withdrawn">▾</button></div></th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ================================================== -->
+        <!-- ============= View: مشاكلي ======================== -->
+        <!-- ================================================== -->
+        <div id="problemsView" class="page-view">
+
+            <section class="stats-grid problems-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">⚠️</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي المشاكل</p>
+                        <h3 class="stat-value" id="problemsTotalCount">0</h3>
+                        <p class="stat-trend down">تحتاج مراجعة</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #f87171);">💸</div>
+                    <div class="stat-info">
+                        <p class="stat-label">مشاكل لم يتم السحب</p>
+                        <h3 class="stat-value" id="problemsNotWithdrawn">0</h3>
+                        <p class="stat-trend down">معلقة</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #34d399);">✅</div>
+                    <div class="stat-info">
+                        <p class="stat-label">مشاكل تم السحب</p>
+                        <h3 class="stat-value" id="problemsWithdrawn">0</h3>
+                        <p class="stat-trend up">انتهت</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">💰</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي قيمة المشاكل</p>
+                        <h3 class="stat-value" id="problemsTotalValue">0</h3>
+                        <p class="stat-trend">ج.م</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="problemsSearchInput" placeholder="ابحث في المشاكل بالاسم، رقم الحساب، الرقم الوطني...">
+                <kbd>Ctrl + K</kbd>
+            </section>
+
+            <section class="table-container">
+                <div class="table-header">
+                    <h2>⚠️ سجل المشاكل</h2>
+                    <div class="table-actions-group">
+                        <button class="btn btn-ghost btn-sm" id="problemsRefreshBtn">🔄 تحديث</button>
+                        <button class="btn btn-ghost btn-sm" id="problemsClearFiltersBtn">✕ مسح الفلاتر</button>
+                    </div>
+                </div>
+
+                <div class="table-scroll" id="problemsTableScroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><div class="th-content"><span>الاسم</span><button class="filter-btn" data-col="name" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم الحساب</span><button class="filter-btn" data-col="account" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم البطاقة</span><button class="filter-btn" data-col="card" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>الرقم الوطني</span><button class="filter-btn" data-col="nationalId" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم الهاتف</span><button class="filter-btn" data-col="phone" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>اسم المورد</span><button class="filter-btn" data-col="supplier" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>تاريخ الإيداع</span><button class="filter-btn" data-col="depositDate" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>قيمة الإيداع</span><button class="filter-btn" data-col="depositValue" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>ملاحظة</span><button class="filter-btn" data-col="note" data-table="problems">▾</button></div></th>
+                                <th><div class="th-content"><span>تم السحب</span><button class="filter-btn" data-col="withdrawn" data-table="problems">▾</button></div></th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="problemsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ================================================== -->
+        <!-- ============= View: إصدار البطاقات ================= -->
+        <!-- ================================================== -->
+        <div id="cardsView" class="page-view">
+
+            <section class="stats-grid problems-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);">💳</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي البطاقات</p>
+                        <h3 class="stat-value" id="cardsTotalCount">0</h3>
+                        <p class="stat-trend">تحتاج إصدار</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #f87171);">🆕</div>
+                    <div class="stat-info">
+                        <p class="stat-label">فتح حساب</p>
+                        <h3 class="stat-value" id="cardsBurned">0</h3>
+                        <p class="stat-trend down">تحتاج فتح</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #34d399);">✅</div>
+                    <div class="stat-info">
+                        <p class="stat-label">حساب جاهز</p>
+                        <h3 class="stat-value" id="cardsMissing">0</h3>
+                        <p class="stat-trend up">جاهز للاستلام</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">✔️</div>
+                    <div class="stat-info">
+                        <p class="stat-label">تم الإصدار</p>
+                        <h3 class="stat-value" id="cardsIssued">0</h3>
+                        <p class="stat-trend up">انتهت</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="cardsSearchInput" placeholder="ابحث في البطاقات بالاسم، رقم البطاقة، الرقم الوطني...">
+                <kbd>Ctrl + K</kbd>
+            </section>
+
+            <section class="table-container">
+                <div class="table-header">
+                    <h2>💳 سجل إصدار البطاقات</h2>
+                    <div class="table-actions-group">
+                        <button class="btn btn-ghost btn-sm" id="cardsRefreshBtn">🔄 تحديث</button>
+                        <button class="btn btn-ghost btn-sm" id="cardsImportBtn">📥 استيراد Excel</button>
+                        <input type="file" id="cardsExcelInput" accept=".xlsx,.xls,.csv" style="display:none;">
+                        <button class="btn btn-ghost btn-sm" id="cardsClearFiltersBtn">✕ مسح الفلاتر</button>
+                        <button class="btn btn-primary btn-sm" id="addCardBtn">➕ إضافة بطاقة</button>
+                    </div>
+                </div>
+
+                <div class="table-scroll" id="cardsTableScroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><div class="th-content"><span>الاسم</span><button class="filter-btn" data-col="name" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم الحساب</span><button class="filter-btn" data-col="account" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>الرقم الوطني</span><button class="filter-btn" data-col="nationalId" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم الهاتف</span><button class="filter-btn" data-col="phone" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>اسم المورد</span><button class="filter-btn" data-col="supplier" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>سبب الإصدار</span><button class="filter-btn" data-col="cardIssueReason" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم البطاقة التي صدرت</span><button class="filter-btn" data-col="newCardNumber" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>تاريخ الإرسال</span><button class="filter-btn" data-col="sendDate" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>تاريخ الاستلام</span><button class="filter-btn" data-col="receiveDate" data-table="cards">▾</button></div></th>
+                                <th><div class="th-content"><span>تم الإصدار</span><button class="filter-btn" data-col="cardIssued" data-table="cards">▾</button></div></th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cardsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ================================================== -->
+        <!-- ============= View: رصيد الدينار & دولار ========== -->
+        <!-- ================================================== -->
+        <div id="balancesView" class="page-view">
+
+            <section class="stats-grid problems-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #34d399);">💵</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي رصيد الدينار</p>
+                        <h3 class="stat-value" id="balanceDinarTotal">0</h3>
+                        <p class="stat-trend up">د.ل</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);">💵</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي رصيد الدولار</p>
+                        <h3 class="stat-value" id="balanceDollarTotal">0</h3>
+                        <p class="stat-trend up">$</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);">👥</div>
+                    <div class="stat-info">
+                        <p class="stat-label">إجمالي العملاء</p>
+                        <h3 class="stat-value" id="balanceCustomersCount">0</h3>
+                        <p class="stat-trend">سجل</p>
+                    </div>
+                </div>
+                <div class="stat-card clickable" id="balanceConflictsCard" style="cursor: pointer;" title="اضغط لفلترة الصفوف المتعارضة">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">⚠️</div>
+                    <div class="stat-info">
+                        <p class="stat-label">تعارضات بآخر 6 أرقام</p>
+                        <h3 class="stat-value" id="balanceConflictsCount">0</h3>
+                        <p class="stat-trend down">اضغط لعرضها</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="balancesSearchInput" placeholder="ابحث بالاسم، رقم الحساب، أو الرقم الوطني...">
+                <kbd>Ctrl + K</kbd>
+            </section>
+
+            <section class="table-container">
+                <div class="table-header">
+                    <h2>💱 سجل رصيد الدينار &amp; دولار</h2>
+                    <div class="table-actions-group">
+                        <button class="btn btn-ghost btn-sm" id="balancesRefreshBtn">🔄 تحديث</button>
+
+                        <button class="btn btn-sm" id="importDinarBtn" style="background: linear-gradient(135deg, #10b981, #34d399); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.4);">
+                            📥 استيراد شيت الدينار
+                        </button>
+                        <input type="file" id="dinarExcelInput" accept=".xlsx,.xls,.csv" style="display:none;">
+
+                        <button class="btn btn-sm" id="importDollarBtn" style="background: linear-gradient(135deg, #3b82f6, #60a5fa); color: white; border: none; box-shadow: 0 4px 12px rgba(59,130,246,0.4);">
+                            📥 استيراد شيت الدولار
+                        </button>
+                        <input type="file" id="dollarExcelInput" accept=".xlsx,.xls,.csv" style="display:none;">
+
+                        <button class="btn btn-ghost btn-sm" id="balancesClearFiltersBtn">✕ مسح الفلاتر</button>
+                        <button class="btn btn-primary btn-sm" id="addBalanceBtn">➕ إضافة سجل</button>
+                        <button class="btn btn-danger btn-sm" id="clearBalancesDataBtn">🗑️ مسح كل البيانات</button>
+                    </div>
+                </div>
+
+                <div class="table-scroll" id="balancesTableScroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><div class="th-content"><span>الاسم</span><button class="filter-btn" data-col="name" data-table="balances">▾</button></div></th>
+                                <th><div class="th-content"><span>رقم الحساب</span><button class="filter-btn" data-col="account" data-table="balances">▾</button></div></th>
+                                <th><div class="th-content"><span>الرقم الوطني</span><button class="filter-btn" data-col="nationalId" data-table="balances">▾</button></div></th>
+                                <th><div class="th-content"><span>رصيد الدينار</span><button class="filter-btn" data-col="dinarBalance" data-table="balances">▾</button></div></th>
+                                <th><div class="th-content"><span>رصيد الدولار</span><button class="filter-btn" data-col="dollarBalance" data-table="balances">▾</button></div></th>
+                                <th><div class="th-content"><span>ملاحظة</span><button class="filter-btn" data-col="comment" data-table="balances">▾</button></div></th>
+                            </tr>
+                        </thead>
+                        <tbody id="balancesTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ================================================== -->
+        <!-- ============= View: الإعدادات ===================== -->
+        <!-- ================================================== -->
+        <div id="settingsView" class="page-view">
+
+            <section class="settings-container">
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <span class="settings-icon">🎨</span>
+                        <div>
+                            <h2>المظهر</h2>
+                            <p>اختر بين المظهر الداكن أو الفاتح</p>
+                        </div>
+                    </div>
+
+                    <div class="theme-toggle-wrapper">
+                        <span class="theme-label active" id="themeLabelDark">🌙 داكن</span>
+                        <label class="theme-switch">
+                            <input type="checkbox" id="themeToggle">
+                            <span class="theme-slider"></span>
+                        </label>
+                        <span class="theme-label" id="themeLabelLight">☀️ فاتح</span>
+                    </div>
+
+                    <p class="theme-hint">سيتم حفظ اختيارك تلقائياً وسيطبق في المرة القادمة</p>
+                </div>
+
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <span class="settings-icon">ℹ️</span>
+                        <div>
+                            <h2>معلومات النظام</h2>
+                            <p>تفاصيل حول المنصة</p>
+                        </div>
+                    </div>
+                    <div class="settings-info-list">
+                        <div class="settings-info-item">
+                            <span class="settings-info-label">اسم المنصة</span>
+                            <span class="settings-info-value">منصة مشاكل المعاملات</span>
+                        </div>
+                        <div class="settings-info-item">
+                            <span class="settings-info-label">الإصدار</span>
+                            <span class="settings-info-value">1.0.0</span>
+                        </div>
+                        <div class="settings-info-item">
+                            <span class="settings-info-label">التخزين</span>
+                            <span class="settings-info-value">LocalStorage</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+    </main>
+
+    <div class="filter-dropdown" id="filterDropdown">
+        <div class="filter-search">
+            <input type="text" id="filterSearchInput" placeholder="ابحث في الخيارات...">
+        </div>
+        <div class="filter-list" id="filterList"></div>
+        <div class="filter-actions">
+            <button class="filter-clear" id="filterClear">مسح</button>
+            <button class="filter-apply" id="filterApply">تطبيق</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="compareModal">
+        <div class="modal compare-modal">
+            <div class="modal-header">
+                <h3>🔍 مقارنة أرقام الحسابات</h3>
+                <button class="modal-close" id="compareModalClose">✕</button>
+            </div>
+
+            <div class="compare-body">
+                <div class="compare-input-section">
+                    <label class="compare-label">الصق الأرقام (رقم الحساب / الوطني / البطاقة / الهاتف) — كل رقم في سطر</label>
+                    <textarea id="compareInput" class="compare-textarea" placeholder="0012345678&#10;12345678901234&#10;1234567890123456&#10;01012345678&#10;..." rows="10"></textarea>
+                    <div class="compare-input-footer">
+                        <span id="compareInputCount" class="compare-count">0 رقم</span>
+                        <div class="compare-input-actions">
+                            <button type="button" class="btn btn-ghost btn-sm" id="compareClear">🧹 مسح</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="compareRun">🔍 قارن واعرض في الجدول</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============= مودال إضافة معاملة جديدة ================= -->
+    <div class="modal-overlay" id="transactionModal">
+        <div class="modal" style="max-width: 720px;">
+            <div class="modal-header">
+                <h3>➕ إضافة معاملة جديدة</h3>
+                <button class="modal-close" id="transactionModalClose">✕</button>
+            </div>
+
+            <div class="modal-form">
+                <div class="modal-grid">
+                    <div class="input-group">
+                        <label>الاسم *</label>
+                        <input type="text" id="txName" placeholder="اسم العميل">
+                    </div>
+                    <div class="input-group">
+                        <label>رقم الحساب</label>
+                        <input type="text" id="txAccount" placeholder="0012345678" inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>رقم البطاقة</label>
+                        <input type="text" id="txCard" placeholder="1234567890123456" inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>الرقم الوطني</label>
+                        <input type="text" id="txNationalId" placeholder="12345678901234" inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>رقم الهاتف</label>
+                        <input type="text" id="txPhone" placeholder="0912345678" inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>اسم المورد</label>
+                        <input type="text" id="txSupplier" placeholder="اسم المورد">
+                    </div>
+                    <div class="input-group">
+                        <label>تاريخ الإيداع</label>
+                        <input type="date" id="txDepositDate">
+                    </div>
+                    <div class="input-group">
+                        <label>قيمة الإيداع</label>
+                        <input type="number" id="txDepositValue" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                    <div class="input-group full-width">
+                        <label>ملاحظة</label>
+                        <input type="text" id="txNote" placeholder="ملاحظة (استخدم @ للمشاكل)">
+                    </div>
+                    <div class="input-group">
+                        <label>تم السحب</label>
+                        <select id="txWithdrawn">
+                            <option value="لا">لا</option>
+                            <option value="نعم">نعم</option>
+                        </select>
+                    </div>
+                    <div class="input-group full-width">
+                        <label>تعليق (اختياري)</label>
+                        <input type="text" id="txComment" placeholder="تعليق داخلي">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="transactionModalCancel">إلغاء</button>
+                <button class="btn btn-primary" id="transactionModalSave">💾 حفظ المعاملة</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="filesModal">
+        <div class="modal files-modal">
+            <div class="modal-header">
+                <h3>📎 ملفات مرفقة - <span id="filesModalPersonName"></span></h3>
+                <button class="modal-close" id="filesModalClose">✕</button>
+            </div>
+
+            <div class="files-body">
+                <div class="files-add-section">
+                    <input type="file" id="filesInput" multiple style="display:none;">
+                    <button class="btn btn-primary" id="filesAddBtn">
+                        ➕ إضافة ملفات
+                    </button>
+                    <span class="files-hint">
+                        (يمكنك اختيار أكثر من ملف مرة واحدة — الحد الأقصى 2 ميجا لكل ملف)
+                    </span>
+                </div>
+
+                <div class="files-list" id="filesList">
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="filesModalDone">تم</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+
+    <!-- ============================================================ -->
+    <!-- 🚪 زر تسجيل الخروج                                         -->
+    <!-- ============================================================ -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                if (!confirm('هل تريد تسجيل الخروج؟')) return;
+                sessionStorage.removeItem('transactions_auth_session');
+                localStorage.removeItem('transactions_auth_session'); // للأمان لو فيه جلسة قديمة
+                window.location.replace('login.html');
+            });
+        }
+    });
+    </script>
+</body>
+</html>

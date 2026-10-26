@@ -9,6 +9,8 @@ const DEFAULT_CREDENTIALS = {
 };
 
 // مفاتيح التخزين
+// ⚠️ الجلسة بقت في sessionStorage (بتنتهي لما تقفل التاب)
+// ⚠️ "تذكرني" فضل في localStorage (يفضل محفوظ)
 const SESSION_KEY = 'transactions_auth_session';
 const REMEMBER_KEY = 'transactions_remember_username';
 
@@ -151,16 +153,16 @@ loginForm.addEventListener('submit', (e) => {
             // ✅ نجاح
             showSuccess('تم تسجيل الدخول بنجاح! جاري التحويل...');
 
-            // حفظ الجلسة
+            // ✅ حفظ الجلسة في sessionStorage (بتنتهي لما تقفل التاب)
             const session = {
                 username: username,
                 loginTime: Date.now(),
                 token: generateToken()
             };
 
-            localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
-            // حفظ اسم المستخدم إذا اختار "تذكرني"
+            // ✅ "تذكرني" فضل في localStorage (اسم المستخدم بس، مش الجلسة)
             if (rememberMe.checked) {
                 localStorage.setItem(REMEMBER_KEY, username);
             } else {
@@ -223,21 +225,21 @@ function showWelcomeAndRedirect() {
 }
 
 // ==================================================================
-// ================== ✅ التحقق من الجلسة (النسخة الصحيحة) ==========
+// ================== ✅ التحقق من الجلسة ===========================
 // ==================================================================
-// - لو الجلسة صالحة (أقل من 24 ساعة وبياناتها سليمة) → تحويل فوري لـ index.html
-// - لو الجلسة تالفة أو منتهية → مسحها والبقاء في صفحة الدخول
-// - لو ?force=1 في الرابط → تجاوز التحقق (للتجربة)
+// - sessionStorage: الجلسة بتنتهي لما تقفل التاب
+// - لو الجلسة صالحة (أقل من 24 ساعة) → تحويل فوري لـ index.html
+// - لو تالفة أو منتهية → مسحها والبقاء في صفحة الدخول
 
 function checkExistingSession() {
     // 🔧 تجاوز للاختبار
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('force') === '1') {
-        localStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
         return;
     }
 
-    const session = localStorage.getItem(SESSION_KEY);
+    const session = sessionStorage.getItem(SESSION_KEY);
     if (!session) return;
 
     try {
@@ -245,12 +247,12 @@ function checkExistingSession() {
 
         // ✅ تحقق كامل من صحة بيانات الجلسة
         if (!parsed || !parsed.username || !parsed.token || !parsed.loginTime) {
-            localStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem(SESSION_KEY);
             return;
         }
 
         // ✅ تحقق إن الجلسة مش أقدم من 24 ساعة
-        const SESSION_MAX_AGE = 24 * 60 * 60 * 1000; // 24 ساعة
+        const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
         const age = Date.now() - parsed.loginTime;
 
         if (age < SESSION_MAX_AGE && age >= 0) {
@@ -259,11 +261,11 @@ function checkExistingSession() {
             return;
         }
 
-        // جلسة منتهية أو فيها خطأ في التوقيت → امسحها
-        localStorage.removeItem(SESSION_KEY);
+        // جلسة منتهية → امسحها
+        sessionStorage.removeItem(SESSION_KEY);
     } catch (e) {
         console.error('خطأ في قراءة الجلسة:', e);
-        localStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
     }
 }
 
